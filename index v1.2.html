@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CKEditor with Audio Recognition</title>
+    <!-- Include CKEditor CDN -->
+    <script src="https://cdn.ckeditor.com/4.16.0/standard/ckeditor.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+</head>
+<body>
+    <h1>CKEditor with Audio Recognition</h1>
+    <p>Click the "Start Recognition" button to begin recording your speech, press again to stop</p>
+    <p>Please wait for about 5 seconds after starting, before speaking</p>
+    <button id="start_recognition_btn" onclick="toggleRecognition()">Start Recognition</button>
+    <br>
+    <br>
+    <!-- <p>Recognized Text:</p> -->
+    <!-- Replace the <div> with an <input> element -->
+    <!-- <input type="text" id="recognized_text" readonly style="width: 300px; height: 50px;"> -->
+
+    
+    <form method="POST">
+        <!-- CKEditor div -->
+        <div id="editor"></div>
+        <br>
+    </form>
+
+    <!-- Initialize CKEditor and load local file content -->
+    <script>
+        var recognitionRunning = false;
+            
+        function toggleRecognition() {
+            if (recognitionRunning) {
+                console.log("Recognition Button Opened");
+                stopRecognition();
+            } else {
+                console.log("Recognition Button Closed");
+                startRecognition();
+            }
+        }
+
+        function startRecognition() {
+            console.log("Start Recognition Clicked");
+            $.post("/start_recognition", function(data) {
+                recognitionRunning = true;
+                $("#start_recognition_btn").text("Stop Recognition");
+                updateText();
+            });
+        }
+
+
+        function stopRecognition() {
+            console.log("Stop Recognition Clicked");
+            $.get("/stop_recognition", function(data) {
+                recognitionRunning = false;
+                $("#start_recognition_btn").text("Start Recognition");
+                $("#recognized_text").val(data.text);  // Update the recognized text in the input
+            });
+        }
+
+        function updateText() {
+            $.get("/get_text", function(data) {
+                $("#recognized_text").val(data.text);  // Update the recognized text in the input
+                if (recognitionRunning) {
+                    setTimeout(updateText, 5000);  // Add a 1-second delay before calling updateText again
+                }
+            });
+        }
+
+        function fetchRecognizedContent() {
+            fetch('/audio_send_text', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    // Set the fetched content as the initial value of CKEditor
+                    CKEDITOR.instances['editor'].setData(data.processed_text);
+                })
+                .catch(error => console.error('Error fetching file:', error));
+        }
+
+        // Initialize CKEditor on the editor div and load file content when the page is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            CKEDITOR.replace('editor');
+           
+            setInterval(() => { 
+                    fetchRecognizedContent();
+                    }, 1000);
+        });
+    </script>
+</body>
+</html>
